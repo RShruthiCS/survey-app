@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Dashboard</h1>
+
+{% if current_user.role == "admin" %}
+  <p>You're an <strong>admin</strong>. Soon you'll create surveys and view results here.</p>
+  <a class="btn btn-outline-primary" href="{{ url_for('admin_test') }}">Test admin-only page</a>
+{% else %}
+  <p>You're a <strong>respondent</strong>. Soon you'll see surveys to fill out here.</p>
+  <a class="btn btn-outline-secondary" href="{{ url_for('admin_test') }}">Try the admin-only page (should be blocked)</a>
+{% endif %}
+{% endblock %}
