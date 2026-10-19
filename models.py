@@ -38,7 +38,7 @@ class Survey(db.Model):
 
     creator = db.relationship("User", back_populates="surveys")
     questions = db.relationship(
-        "Question", back_populates="survey", cascade="all, delete-orphan"
+    "Question", back_populates="survey", cascade="all, delete-orphan", order_by="Question.id"
     )
 
 

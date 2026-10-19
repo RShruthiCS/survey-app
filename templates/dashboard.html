@@ -1,13 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<h1 class="h3 mb-3">Dashboard</h1>
-
 {% if current_user.role == "admin" %}
-  <p>You're an <strong>admin</strong>. Soon you'll create surveys and view results here.</p>
-  <a class="btn btn-outline-primary" href="{{ url_for('admin_test') }}">Test admin-only page</a>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">My surveys</h1>
+    <a class="btn btn-primary" href="{{ url_for('create_survey') }}">+ New survey</a>
+  </div>
+
+  {% if surveys %}
+    <div class="list-group">
+      {% for survey in surveys %}
+        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+           href="{{ url_for('edit_survey', survey_id=survey.id) }}">
+          {{ survey.title }}
+          <span class="badge bg-secondary rounded-pill">
+            {{ survey.questions|length }} question{{ "" if survey.questions|length == 1 else "s" }}
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-muted">You haven't created any surveys yet.</p>
+  {% endif %}
+
 {% else %}
+  <h1 class="h3 mb-3">Dashboard</h1>
   <p>You're a <strong>respondent</strong>. Soon you'll see surveys to fill out here.</p>
-  <a class="btn btn-outline-secondary" href="{{ url_for('admin_test') }}">Try the admin-only page (should be blocked)</a>
 {% endif %}
 {% endblock %}

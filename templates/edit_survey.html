@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ survey.title }}{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">{{ survey.title }}</h1>
+<p class="text-muted mb-4">Add questions below. Respondents will answer them in this order.</p>
+
+<h2 class="h5">Questions</h2>
+{% if survey.questions %}
+  <ol class="list-group list-group-numbered mb-4">
+    {% for question in survey.questions %}
+      <li class="list-group-item d-flex justify-content-between align-items-start">
+        <span class="ms-2 me-auto">{{ question.text }}</span>
+        <span class="badge {{ 'bg-primary' if question.question_type == 'rating' else 'bg-info text-dark' }}">
+          {{ "Rating 1–5" if question.question_type == "rating" else "Text" }}
+        </span>
+      </li>
+    {% endfor %}
+  </ol>
+{% else %}
+  <p class="text-muted mb-4">No questions yet. Add your first one below.</p>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h5 card-title">Add a question</h2>
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        {{ form.text.label(class="form-label") }}
+        {{ form.text(class="form-control" + (" is-invalid" if form.text.errors else ""),
+                     placeholder="e.g. How helpful was your mentor?") }}
+        {% for error in form.text.errors %}
+          <div class="invalid-feedback">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <div class="mb-3">
+        {{ form.question_type.label(class="form-label") }}
+        {{ form.question_type(class="form-select") }}
+      </div>
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</div>
+
+<a class="btn btn-outline-secondary mt-3" href="{{ url_for('dashboard') }}">Done, back to dashboard</a>
+{% endblock %}

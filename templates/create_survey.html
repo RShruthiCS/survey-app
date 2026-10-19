@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}New survey{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Create a new survey</h1>
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="mb-3">
+    {{ form.title.label(class="form-label") }}
+    {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""),
+                  placeholder="e.g. Mentorship Session Feedback") }}
+    {% for error in form.title.errors %}
+      <div class="invalid-feedback">{{ error }}</div>
+    {% endfor %}
+  </div>
+  {{ form.submit(class="btn btn-primary") }}
+  <a class="btn btn-link" href="{{ url_for('dashboard') }}">Cancel</a>
+</form>
+{% endblock %}

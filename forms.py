@@ -21,3 +21,16 @@ class LoginForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Log in")
+
+class SurveyForm(FlaskForm):
+    title = StringField("Survey title", validators=[DataRequired(), Length(max=200)])
+    submit = SubmitField("Create survey")
+
+
+class QuestionForm(FlaskForm):
+    text = StringField("Question", validators=[DataRequired(), Length(max=500)])
+    question_type = SelectField(
+        "Answer type",
+        choices=[("rating", "Rating (1–5)"), ("text", "Short text")],
+    )
+    submit = SubmitField("Add question")

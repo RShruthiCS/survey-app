@@ -12,8 +12,8 @@ from flask_login import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from forms import LoginForm, RegistrationForm
-from models import User, db
+from forms import LoginForm, QuestionForm, RegistrationForm, SurveyForm
+from models import Question, Survey, User, db
 
 load_dotenv()
 
@@ -122,7 +122,50 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    if current_user.role == "admin":
+        surveys = (
+            Survey.query.filter_by(created_by=current_user.id)
+            .order_by(Survey.created_at.desc())
+            .all()
+        )
+        return render_template("dashboard.html", surveys=surveys)
     return render_template("dashboard.html")
+
+
+# --- Survey creation (admins only) -----------------------------------------
+@app.route("/surveys/new", methods=["GET", "POST"])
+@admin_required
+def create_survey():
+    form = SurveyForm()
+    if form.validate_on_submit():
+        survey = Survey(title=form.title.data.strip(), created_by=current_user.id)
+        db.session.add(survey)
+        db.session.commit()
+        flash("Survey created. Now add some questions.", "success")
+        return redirect(url_for("edit_survey", survey_id=survey.id))
+    return render_template("create_survey.html", form=form)
+
+
+@app.route("/surveys/<int:survey_id>/edit", methods=["GET", "POST"])
+@admin_required
+def edit_survey(survey_id):
+    survey = db.get_or_404(Survey, survey_id)
+    if survey.created_by != current_user.id:
+        abort(403)  # admins can only edit their own surveys
+
+    form = QuestionForm()
+    if form.validate_on_submit():
+        question = Question(
+            survey_id=survey.id,
+            text=form.text.data.strip(),
+            question_type=form.question_type.data,
+        )
+        db.session.add(question)
+        db.session.commit()
+        flash("Question added.", "success")
+        return redirect(url_for("edit_survey", survey_id=survey.id))
+
+    return render_template("edit_survey.html", survey=survey, form=form)
 
 
 @app.route("/admin-test")
