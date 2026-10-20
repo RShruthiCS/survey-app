@@ -24,7 +24,26 @@
   {% endif %}
 
 {% else %}
-  <h1 class="h3 mb-3">Dashboard</h1>
-  <p>You're a <strong>respondent</strong>. Soon you'll see surveys to fill out here.</p>
+  <h1 class="h3 mb-3">Available surveys</h1>
+
+  {% if surveys %}
+    <div class="list-group">
+      {% for survey in surveys %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+          <span>
+            {{ survey.title }}
+            <small class="text-muted d-block">{{ survey.questions|length }} question{{ "" if survey.questions|length == 1 else "s" }}</small>
+          </span>
+          {% if survey.id in completed_ids %}
+            <span class="badge bg-success">Completed</span>
+          {% else %}
+            <a class="btn btn-sm btn-primary" href="{{ url_for('take_survey', survey_id=survey.id) }}">Take survey</a>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-muted">No surveys are available yet. Check back soon.</p>
+  {% endif %}
 {% endif %}
 {% endblock %}

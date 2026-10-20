@@ -2,7 +2,7 @@ import os
 from functools import wraps
 
 from dotenv import load_dotenv
-from flask import Flask, abort, flash, redirect, render_template, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, url_for
 from flask_login import (
     LoginManager,
     current_user,
@@ -10,10 +10,12 @@ from flask_login import (
     login_user,
     logout_user,
 )
+from flask_wtf.csrf import CSRFProtect
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from forms import LoginForm, QuestionForm, RegistrationForm, SurveyForm
-from models import Question, Survey, User, db
+from models import Question, Response, Survey, User, db
 
 load_dotenv()
 
@@ -22,6 +24,7 @@ app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
 
 db.init_app(app)
+csrf = CSRFProtect(app)  # CSRF protection for every form, including hand-written ones
 
 # --- Login setup ---------------------------------------------------------
 login_manager = LoginManager()
@@ -46,6 +49,18 @@ def admin_required(view):
             abort(403)  # 403 = Forbidden
         return view(*args, **kwargs)
     return wrapped
+
+
+def completed_survey_ids(user_id):
+    """IDs of surveys this user has already answered."""
+    rows = (
+        db.session.query(Question.survey_id)
+        .join(Response, Response.question_id == Question.id)
+        .filter(Response.user_id == user_id)
+        .distinct()
+        .all()
+    )
+    return {row.survey_id for row in rows}
 
 
 # --- CLI command ---------------------------------------------------------
@@ -79,7 +94,7 @@ def register():
 
         user = User(
             email=email,
-            password_hash=generate_password_hash(form.password.data),
+            password_hash=generate_password_hash(form.password.data, method="pbkdf2:sha256"),
             role=form.role.data,
         )
         db.session.add(user)
@@ -129,7 +144,15 @@ def dashboard():
             .all()
         )
         return render_template("dashboard.html", surveys=surveys)
-    return render_template("dashboard.html")
+
+    # Respondents: every survey that has at least one question
+    surveys = (
+        Survey.query.filter(Survey.questions.any())
+        .order_by(Survey.created_at.desc())
+        .all()
+    )
+    completed_ids = completed_survey_ids(current_user.id)
+    return render_template("dashboard.html", surveys=surveys, completed_ids=completed_ids)
 
 
 # --- Survey creation (admins only) -----------------------------------------
@@ -168,8 +191,64 @@ def edit_survey(survey_id):
     return render_template("edit_survey.html", survey=survey, form=form)
 
 
-@app.route("/admin-test")
-@admin_required
-def admin_test():
-    """Temporary page to check that role protection works. Remove in Step 4."""
-    return "Only admins can see this page."
+# --- Taking surveys (respondents only) -------------------------------------
+MAX_TEXT_LENGTH = 1000
+
+
+@app.route("/surveys/<int:survey_id>/take", methods=["GET", "POST"])
+@login_required
+def take_survey(survey_id):
+    if current_user.role != "respondent":
+        abort(403)
+
+    survey = db.get_or_404(Survey, survey_id)
+    if not survey.questions:
+        abort(404)
+
+    if survey.id in completed_survey_ids(current_user.id):
+        flash("You've already completed this survey.", "info")
+        return redirect(url_for("dashboard"))
+
+    answers = {}  # what the user typed, so we can refill the form on errors
+    errors = {}   # question.id -> error message
+
+    if request.method == "POST":
+        for question in survey.questions:
+            raw = request.form.get(f"q_{question.id}", "").strip()
+            answers[question.id] = raw
+
+            if question.question_type == "rating":
+                if raw not in {"1", "2", "3", "4", "5"}:
+                    errors[question.id] = "Please choose a rating from 1 to 5."
+            else:
+                if not raw:
+                    errors[question.id] = "Please write an answer."
+                elif len(raw) > MAX_TEXT_LENGTH:
+                    errors[question.id] = f"Please keep it under {MAX_TEXT_LENGTH} characters."
+
+        if not errors:
+            for question in survey.questions:
+                value = answers[question.id]
+                db.session.add(
+                    Response(
+                        question_id=question.id,
+                        user_id=current_user.id,
+                        rating_value=int(value) if question.question_type == "rating" else None,
+                        text_value=value if question.question_type == "text" else None,
+                    )
+                )
+            try:
+                db.session.commit()
+            except IntegrityError:
+                # The UNIQUE(question_id, user_id) constraint caught a duplicate,
+                # e.g. the user double-clicked Submit.
+                db.session.rollback()
+                flash("You've already completed this survey.", "info")
+                return redirect(url_for("dashboard"))
+
+            flash(f"Thanks! Your answers to \"{survey.title}\" were submitted.", "success")
+            return redirect(url_for("dashboard"))
+
+        flash("Please answer every question.", "danger")
+
+    return render_template("take_survey.html", survey=survey, answers=answers, errors=errors)

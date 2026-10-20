@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ survey.title }}{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">{{ survey.title }}</h1>
+<p class="text-muted mb-4">All questions are required. You can submit this survey once.</p>
+
+<form method="post" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {% for question in survey.questions %}
+    {% set field = "q_" ~ question.id %}
+    {% set error = errors.get(question.id) %}
+    <div class="card mb-3 {{ 'border-danger' if error }}">
+      <div class="card-body">
+        <p class="fw-semibold mb-2">{{ loop.index }}. {{ question.text }}</p>
+
+        {% if question.question_type == "rating" %}
+          <div class="btn-group" role="group" aria-label="Rating for question {{ loop.index }}">
+            {% for value in range(1, 6) %}
+              <input type="radio" class="btn-check" name="{{ field }}" id="{{ field }}_{{ value }}"
+                     value="{{ value }}" {{ "checked" if answers.get(question.id) == value|string }}>
+              <label class="btn btn-outline-primary" for="{{ field }}_{{ value }}">{{ value }}</label>
+            {% endfor %}
+          </div>
+          <div class="form-text">1 = Poor, 5 = Excellent</div>
+        {% else %}
+          <textarea class="form-control" name="{{ field }}" rows="3" maxlength="1000">{{ answers.get(question.id, "") }}</textarea>
+        {% endif %}
+
+        {% if error %}
+          <div class="text-danger small mt-2">{{ error }}</div>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+
+  <button type="submit" class="btn btn-primary">Submit answers</button>
+  <a class="btn btn-link" href="{{ url_for('dashboard') }}">Cancel</a>
+</form>
+{% endblock %}
